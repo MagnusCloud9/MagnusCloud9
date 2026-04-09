@@ -2,7 +2,7 @@
 - 👀 I’m interested in ...
 - 🌱 I’m currently learning ...AWS solutions Architecture
 - 💞️ I’m looking to collaborate on ...Architectural Designs
-- 📫 How to reach me ...+233 5534534196
+- 📫 How to reach me ...+233 534534196
 - 😄 Pronouns: ...Mr
 - ⚡ Fun fact: ...I play piano 
 
