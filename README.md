@@ -1,7 +1,7 @@
 - 👋 Hi, I’m @MagnusCloud9
-- 👀 I’m interested in ...
-- 🌱 I’m currently learning ...AWS solutions Architecture
-- 💞️ I’m looking to collaborate on ...Architectural Designs
+- 👀 I’m interested in building IT Solutions
+- 🌱 I’m currently learning AWS solutions Architecture and AI 
+- 💞️ I’m looking to collaborate Architectural Designs and anything AI
 - 📫 How to reach me ...+233 534534196
 - 😄 Pronouns: ...Mr
 - ⚡ Fun fact: ...I play piano 
