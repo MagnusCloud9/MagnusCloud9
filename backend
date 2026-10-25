@@ -1,0 +1,16 @@
+async function requestPickup(lat, lng, volume) {
+  try {
+    const docRef = await addDoc(collection(window.db, "requests"), {
+      status: "pending",
+      pickup_coords: { lat: lat, lng: lng },
+      trash_volume: volume,
+      timestamp: new Date()
+    });
+    console.log("Pickup requested with ID: ", docRef.id);
+    
+    // Start listening for a driver to accept it
+    listenForDriver(docRef.id);
+  } catch (e) {
+    console.error("Error adding document: ", e);
+  }
+}
