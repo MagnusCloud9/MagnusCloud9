@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EcoPickup - Waste Collection</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        eco: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            900: '#14532d',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden; /* Prevent pull-to-refresh on mobile */
+            background-color: #f3f4f6;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 10;
+        }
+
+        /* Safe area adjustments for modern mobile devices */
+        .bottom-sheet {
+            z-index: 1000;
+            box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.1);
+            padding-bottom: env(safe-area-inset-bottom, 20px);
+        }
+
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Custom Map Marker styles */
+        .user-marker {
+            background-color: #22c55e;
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        }
+        
+        .driver-marker {
+            font-size: 24px;
+            color: #16a34a;
+            filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.4));
+            transition: all 0.5s ease;
+        }
+    </style>
+</head>
+<body class="antialiased text-gray-800">
+
+    <!-- App Container -->
+    <div class="relative w-full h-full max-w-md mx-auto bg-gray-100 overflow-hidden shadow-2xl sm:rounded-3xl sm:h-[90vh] sm:my-[5vh]">
+        
+        <!-- Header Overlay -->
+        <div class="absolute top-0 w-full z-[1000] p-4 flex justify-between items-center pointer-events-none">
+            <div class="bg-white p-3 rounded-full shadow-lg pointer-events-auto cursor-pointer h-12 w-12 flex items-center justify-center">
+                <i class="fa-solid fa-bars text-xl text-gray-700"></i>
+            </div>
+            <div class="bg-white px-4 py-2 rounded-full shadow-lg pointer-events-auto font-bold text-eco-600 flex items-center gap-2">
+                <i class="fa-solid fa-leaf"></i> EcoPickup
+            </div>
+        </div>
+
+        <!-- Map Container -->
+        <div id="map"></div>
+
+        <!-- TARGET: BOOKING PANEL -->
+        <div id="booking-panel" class="bottom-sheet absolute bottom-0 w-full bg-white rounded-t-[30px] transition-transform duration-500 transform translate-y-0">
+            <!-- Drag Handle indicator -->
+            <div class="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-3 mb-5"></div>
+            
+            <div class="px-6 pb-6">
+                <!-- Location Input -->
+                <div class="relative mb-5 bg-gray-100 rounded-2xl p-3 flex items-center shadow-inner">
+                    <div class="w-3 h-3 bg-eco-500 rounded-full ml-2 mr-4"></div>
+                    <div class="flex-1 border-l border-gray-300 pl-4">
+                        <p class="text-xs text-gray-500 font-medium mb-1">Pickup Location</p>
+                        <input type="text" value="Osu Oxford Street, Accra" class="w-full bg-transparent border-none outline-none font-semibold text-gray-800" readonly>
+                    </div>
+                </div>
+
+                <h3 class="font-bold text-lg mb-3">Select Vehicle</h3>
+                
+                <!-- Vehicle Selection Cards -->
+                <div class="flex gap-3 mb-5 overflow-x-auto hide-scrollbar pb-2">
+                    <!-- Tricycle Option -->
+                    <div id="opt-tricycle" class="vehicle-option flex-1 min-w-[140px] border-2 border-eco-500 bg-eco-50 rounded-2xl p-4 cursor-pointer relative transition-all" onclick="selectVehicle('tricycle')">
+                        <div class="absolute top-3 right-3 text-eco-600 opacity-100 check-icon">
+                            <i class="fa-solid fa-circle-check"></i>
+                        </div>
+                        <i class="fa-solid fa-motorcycle text-3xl text-eco-600 mb-2"></i>
+                        <h4 class="font-bold text-gray-800">Tricycle</h4>
+                        <p class="text-xs text-gray-500">2-4 mins • Standard</p>
+                        <p class="font-bold mt-1">₵ 15.00</p>
+                    </div>
+
+                    <!-- Truck Option -->
+                    <div id="opt-truck" class="vehicle-option flex-1 min-w-[140px] border-2 border-gray-200 bg-white rounded-2xl p-4 cursor-pointer relative transition-all" onclick="selectVehicle('truck')">
+                        <div class="absolute top-3 right-3 text-eco-600 opacity-0 check-icon">
+                            <i class="fa-solid fa-circle-check"></i>
+                        </div>
+                        <i class="fa-solid fa-truck-moving text-3xl text-gray-600 mb-2 vehicle-icon"></i>
+                        <h4 class="font-bold text-gray-800">Refuse Truck</h4>
+                        <p class="text-xs text-gray-500">8-12 mins • Bulky</p>
+                        <p class="font-bold mt-1">₵ 40.00</p>
+                    </div>
+                </div>
+
+                <!-- Volume Selection -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold text-lg">Trash Volume</h3>
+                        <span id="volume-label" class="text-xs font-semibold text-eco-600 bg-eco-100 px-2 py-1 rounded-md">1-2 Bags</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="vol-btn flex-1 py-2 rounded-xl border border-eco-500 bg-eco-50 text-eco-700 font-medium text-sm transition-colors" onclick="selectVolume(this, '1-2 Bags')">Small</button>
+                        <button class="vol-btn flex-1 py-2 rounded-xl border border-gray-200 bg-white text-gray-600 font-medium text-sm transition-colors" onclick="selectVolume(this, '3-5 Bags')">Medium</button>
+                        <button class="vol-btn flex-1 py-2 rounded-xl border border-gray-200 bg-white text-gray-600 font-medium text-sm transition-colors" onclick="selectVolume(this, 'Large / Furniture')">Bulk</button>
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <button onclick="requestPickup()" class="w-full bg-eco-600 hover:bg-eco-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-eco-500/30 transition-transform active:scale-95 text-lg flex items-center justify-center gap-2">
+                    Request Pickup <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- TARGET: TRACKING PANEL (Hidden Initially) -->
+        <div id="tracking-panel" class="bottom-sheet absolute bottom-0 w-full bg-white rounded-t-[30px] transition-transform duration-500 transform translate-y-full">
+            <div class="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-3 mb-5"></div>
+            
+            <div class="px-6 pb-6">
+                <!-- Status & ETA -->
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-black text-gray-800" id="eta-text">3 min</h2>
+                    <p class="text-eco-600 font-semibold text-sm animate-pulse">Arriving soon...</p>
+                </div>
+                
+                <hr class="border-gray-100 mb-4">
+
+                <!-- Driver Details -->
+                <div class="flex items-center justify-between mb-4 bg-gray-50 p-4 rounded-2xl">
+                    <div class="flex items-center gap-4">
+                        <div class="relative">
+                            <img src="https://placehold.co/100x100/22c55e/ffffff?text=K" alt="Driver" class="w-14 h-14 rounded-full border-2 border-white shadow-md">
+                            <div class="absolute -bottom-1 -right-1 bg-white p-0.5 rounded-full shadow-sm">
+                                <div class="bg-yellow-400 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                                    4.9 <i class="fa-solid fa-star text-[8px]"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-lg text-gray-800">Kwame O.</h3>
+                            <p class="text-xs text-gray-500" id="tracking-vehicle-type">Green Tricycle</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="bg-gray-200 px-3 py-1 rounded-md font-mono font-bold text-gray-700 tracking-wider text-sm mb-1">
+                            GR-244-23
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex gap-3 mt-6">
+                    <a href="tel:#" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 transition-colors">
+                        <i class="fa-solid fa-phone"></i> Call
+                    </a>
+                    <button onclick="cancelPickup()" class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3.5 rounded-2xl transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script>
+        // --- State Management ---
+        let currentVehicle = 'tricycle';
+        let currentVolume = '1-2 Bags';
+        let map, userMarker, driverMarker;
+        let driverInterval;
+
+        // Accra Coordinates (Context provided location)
+        const USER_LAT = 5.6037;
+        const USER_LNG = -0.1870;
+
+        // --- Map Initialization ---
+        window.onload = function() {
+            initMap();
+        };
+
+        function initMap() {
+            // Initialize map
+            map = L.map('map', {
+                zoomControl: false,
+                attributionControl: false
+            }).setView([USER_LAT, USER_LNG], 15);
+
+            // Add minimalist clean tile layer
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19,
+            }).addTo(map);
+
+            // Add User Marker
+            const userIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: "<div class='w-5 h-5 bg-eco-500 border-2 border-white rounded-full shadow-lg'></div>",
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+            userMarker = L.marker([USER_LAT, USER_LNG], {icon: userIcon}).addTo(map);
+        }
+
+        // --- UI Interactions ---
+
+        function selectVehicle(type) {
+            currentVehicle = type;
+            const triEl = document.getElementById('opt-tricycle');
+            const trkEl = document.getElementById('opt-truck');
+            
+            // Reset both
+            [triEl, trkEl].forEach(el => {
+                el.classList.remove('border-eco-500', 'bg-eco-50');
+                el.classList.add('border-gray-200', 'bg-white');
+                el.querySelector('.check-icon').classList.replace('opacity-100', 'opacity-0');
+                el.querySelector('i:not(.fa-circle-check)').classList.replace('text-eco-600', 'text-gray-600');
+            });
+
+            // Set Active
+            const activeEl = type === 'tricycle' ? triEl : trkEl;
+            activeEl.classList.remove('border-gray-200', 'bg-white');
+            activeEl.classList.add('border-eco-500', 'bg-eco-50');
+            activeEl.querySelector('.check-icon').classList.replace('opacity-0', 'opacity-100');
+            activeEl.querySelector('i:not(.fa-circle-check)').classList.replace('text-gray-600', 'text-eco-600');
+        }
+
+        function selectVolume(btn, volumeText) {
+            currentVolume = volumeText;
+            document.getElementById('volume-label').innerText = volumeText;
+
+            // Reset all buttons
+            document.querySelectorAll('.vol-btn').forEach(el => {
+                el.classList.remove('border-eco-500', 'bg-eco-50', 'text-eco-700');
+                el.classList.add('border-gray-200', 'bg-white', 'text-gray-600');
+            });
+
+            // Set active button
+            btn.classList.remove('border-gray-200', 'bg-white', 'text-gray-600');
+            btn.classList.add('border-eco-500', 'bg-eco-50', 'text-eco-700');
+        }
+
+        // --- App Logic ---
+
+        function requestPickup() {
+            // UI Transition
+            document.getElementById('booking-panel').classList.replace('translate-y-0', 'translate-y-full');
+            
+            setTimeout(() => {
+                document.getElementById('tracking-panel').classList.replace('translate-y-full', 'translate-y-0');
+            }, 300);
+
+            // Update tracking UI text based on selection
+            const vehicleLabel = currentVehicle === 'tricycle' ? 'Green Tricycle' : 'Heavy Refuse Truck';
+            document.getElementById('tracking-vehicle-type').innerText = vehicleLabel;
+
+            // Map interaction: Add driver marker nearby
+            const startLat = USER_LAT - 0.008; // slightly south
+            const startLng = USER_LNG + 0.005; // slightly east
+            
+            const driverIconHtml = currentVehicle === 'tricycle' 
+                ? '<i class="fa-solid fa-motorcycle driver-marker bg-white p-2 rounded-full shadow-lg border border-gray-100"></i>'
+                : '<i class="fa-solid fa-truck driver-marker bg-white p-2 rounded-full shadow-lg border border-gray-100"></i>';
+
+            const driverIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: driverIconHtml,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
+
+            if(driverMarker) map.removeLayer(driverMarker);
+            driverMarker = L.marker([startLat, startLng], {icon: driverIcon}).addTo(map);
+            
+            // Adjust map view to show both
+            const group = new L.featureGroup([userMarker, driverMarker]);
+            map.fitBounds(group.getBounds(), {padding: [50, 200]}); // pad bottom heavily for UI
+
+            // Simulate Driver Movement
+            simulateDriverMovement(startLat, startLng);
+        }
+
+        function simulateDriverMovement(lat, lng) {
+            let currentLat = lat;
+            let currentLng = lng;
+            let eta = 3;
+
+            // Simple linear interpolation towards user
+            driverInterval = setInterval(() => {
+                const latDiff = USER_LAT - currentLat;
+                const lngDiff = USER_LNG - currentLng;
+                
+                // Move 10% closer each tick
+                currentLat += latDiff * 0.1;
+                currentLng += lngDiff * 0.1;
+                
+                driverMarker.setLatLng([currentLat, currentLng]);
+                
+                // Update ETA roughly based on distance (mock)
+                if (Math.abs(latDiff) < 0.001 && eta > 1) {
+                    eta--;
+                    document.getElementById('eta-text').innerText = eta + " min";
+                }
+                
+                if (Math.abs(latDiff) < 0.0001) {
+                    clearInterval(driverInterval);
+                    document.getElementById('eta-text').innerText = "Arrived";
+                    document.getElementById('eta-text').classList.add('text-eco-600');
+                }
+
+            }, 2000); // update every 2 seconds
+        }
+
+        function cancelPickup() {
+            // Stop movement
+            if(driverInterval) clearInterval(driverInterval);
+            if(driverMarker) {
+                map.removeLayer(driverMarker);
+                driverMarker = null;
+            }
+
+            // Reset Map View
+            map.setView([USER_LAT, USER_LNG], 15);
+
+            // Reset UI texts
+            document.getElementById('eta-text').innerText = "3 min";
+            document.getElementById('eta-text').classList.remove('text-eco-600');
+
+            // UI Transition back
+            document.getElementById('tracking-panel').classList.replace('translate-y-0', 'translate-y-full');
+            
+            setTimeout(() => {
+                document.getElementById('booking-panel').classList.replace('translate-y-full', 'translate-y-0');
+            }, 300);
+        }
+    </script>
+</body>
+</html>
